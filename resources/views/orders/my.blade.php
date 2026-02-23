@@ -36,10 +36,11 @@
                             <div class="text-end">
                                 <span class="badge 
                                     @if($order->status === 'delivered') bg-success
-                                    @elseif($order->status === 'cancelled') bg-secondary
+                                    @elseif($order->status === 'rejected' || $order->status === 'cancelled') bg-danger
+                                    @elseif($order->status === 'accepted') bg-info text-dark
                                     @else bg-warning text-dark
                                     @endif
-                                ">{{ ucfirst(str_replace('_', ' ', $order->status)) }}</span>
+                                ">{{ ucfirst(str_replace('_', ' ', $order->status ?? 'pending')) }}</span>
                                 <p class="mb-0 mt-1 fw-bold">RM {{ number_format($order->total_amount, 2) }}</p>
                                 <a href="{{ route('orders.show', $order) }}" class="btn btn-sm btn-outline-primary mt-1">View</a>
                             </div>

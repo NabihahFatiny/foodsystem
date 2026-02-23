@@ -11,6 +11,9 @@ class Order extends Model
 
     protected $fillable = [
         'customer_name',
+        'delivery_address',
+        'phone',
+        'user_id',
         'items',
         'total_amount',
         'status'
@@ -19,4 +22,14 @@ class Order extends Model
     protected $casts = [
         'total_amount' => 'decimal:2'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function review()
+    {
+        return $this->hasOne(OrderReview::class);
+    }
 }

@@ -35,7 +35,7 @@
                 </div>
                 <table class="table table-bordered">
                     <thead>
-                        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+                        <tr><th>Item</th><th>Remark</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
                     </thead>
                     <tbody>
                         @php $items = json_decode($order->items, true); @endphp
@@ -43,6 +43,7 @@
                             @foreach($items as $item)
                                 <tr>
                                     <td>{{ $item['name'] ?? '—' }}</td>
+                                    <td class="text-muted small">{{ $item['remark'] ?? '—' }}</td>
                                     <td>{{ $item['quantity'] ?? 0 }}</td>
                                     <td>RM {{ number_format($item['price'] ?? 0, 2) }}</td>
                                     <td>RM {{ number_format(($item['quantity'] ?? 0) * ($item['price'] ?? 0), 2) }}</td>
@@ -52,6 +53,27 @@
                     </tbody>
                 </table>
                 <p class="text-end mb-0"><strong>Total: RM {{ number_format($order->total_amount, 2) }}</strong></p>
+
+                @if(!empty($can_review))
+                    <hr class="my-4">
+                    <h5 class="mb-3">Rate this order</h5>
+                    <form action="{{ route('reviews.store') }}" method="POST" class="mb-0">
+                        @csrf
+                        <input type="hidden" name="order_id" value="{{ $order->id }}">
+                        <div class="mb-3">
+                            <label class="form-label">Rating</label>
+                            <select name="rating" class="form-select" style="width: auto;" required>
+                                <option value="">Select</option>
+                                @for($i = 1; $i <= 5; $i++) <option value="{{ $i }}">{{ $i }} ★</option> @endfor
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Review (optional)</label>
+                            <textarea name="review" class="form-control" rows="3" placeholder="How was your order?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit review</button>
+                    </form>
+                @endif
             </div>
         </div>
     </div>

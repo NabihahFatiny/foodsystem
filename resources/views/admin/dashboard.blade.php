@@ -66,10 +66,11 @@
             </div>
         </div>
 
-        <!-- Recent Orders Table -->
+        <!-- Incoming Orders (real-time) -->
         <div class="card mt-4">
-            <div class="card-header bg-dark text-white">
-                <h5 class="mb-0">Recent Orders</h5>
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Incoming Orders <span class="badge bg-success ms-2" id="liveBadge">Live</span></h5>
+                <small class="opacity-75">Refreshes every 5 sec</small>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -78,13 +79,14 @@
                             <tr>
                                 <th>Order ID</th>
                                 <th>Customer</th>
+                                <th>Address / Phone</th>
                                 <th>Items</th>
                                 <th>Total</th>
+                                <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="recentOrders">
-                            <!-- Orders will be loaded here dynamically -->
                         </tbody>
                     </table>
                 </div>
@@ -208,8 +210,8 @@
 
     <!-- Replace the entire script section with this: -->
     <script>
+        const receiptBaseUrl = '{{ route("orders.receipt", ["order" => "__ID__"]) }}';
         $(document).ready(function() {
-            // Add CSRF token to all AJAX requests
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -347,7 +349,6 @@
                 loadFoodItems(); // Reload all items
             });
 
-            // Function to load orders
             function loadOrders() {
                 $.ajax({
                     url: '{{ route("orders.index") }}',
@@ -355,38 +356,68 @@
                     success: function(orders) {
                         const ordersBody = $('#recentOrders');
                         ordersBody.empty();
-
                         if (orders && orders.length > 0) {
+                            const statusBadge = (s) => {
+                                const cls = s === 'pending' ? 'bg-warning text-dark' : s === 'rejected' ? 'bg-danger' : s === 'delivered' ? 'bg-success' : 'bg-info';
+                                return `<span class="badge ${cls}">${(s || 'pending').replace(/_/g, ' ')}</span>`;
+                            };
                             orders.forEach(order => {
-                                const items = JSON.parse(order.items);
+                                const items = JSON.parse(order.items || '[]');
                                 const itemsList = items.map(item =>
-                                    `${item.name} (${item.quantity})`
+                                    `${item.name} (${item.quantity})${item.remark ? ' — ' + item.remark : ''}`
                                 ).join(', ');
-
+                                const addr = (order.delivery_address || '—').substring(0, 25) + (order.delivery_address && order.delivery_address.length > 25 ? '…' : '');
+                                const phone = order.phone || '—';
+                                const isPending = (order.status || 'pending') === 'pending';
+                                const statuses = ['accepted', 'preparing', 'out_for_delivery', 'delivered'];
+                                const acceptReject = isPending
+                                    ? `<button class="btn btn-success btn-sm accept-order" data-id="${order.id}">Accept</button>
+                                       <button class="btn btn-outline-danger btn-sm reject-order" data-id="${order.id}">Reject</button>`
+                                    : '';
+                                const statusSelect = !isPending && order.status !== 'rejected' && order.status !== 'cancelled'
+                                    ? `<select class="form-select form-select-sm order-status" data-id="${order.id}" style="width:auto;">
+                                        ${['accepted','preparing','out_for_delivery','delivered'].map(s => `<option value="${s}" ${(order.status || '') === s ? 'selected' : ''}>${s.replace(/_/g,' ')}</option>`).join('')}
+                                       </select>`
+                                    : '';
+                                const printBtn = `<a href="${receiptBaseUrl.replace('__ID__', order.id)}" target="_blank" class="btn btn-outline-secondary btn-sm">Print</a>`;
                                 ordersBody.append(`
                                     <tr>
                                         <td>${order.id}</td>
                                         <td>${order.customer_name}</td>
-                                        <td>${itemsList}</td>
+                                        <td><small>${addr}<br>${phone}</small></td>
+                                        <td><small>${itemsList}</small></td>
                                         <td>RM ${parseFloat(order.total_amount).toFixed(2)}</td>
+                                        <td>${statusBadge(order.status)}</td>
                                         <td>
-                                            <button class="btn btn-danger btn-sm delete-order" data-id="${order.id}">
-                                                Delete
-                                            </button>
+                                            ${acceptReject}
+                                            ${statusSelect}
+                                            ${printBtn}
+                                            <button class="btn btn-danger btn-sm delete-order" data-id="${order.id}">Delete</button>
                                         </td>
                                     </tr>
                                 `);
                             });
                         } else {
-                            ordersBody.append(`
-                                <tr>
-                                    <td colspan="5" class="text-center">No orders found</td>
-                                </tr>
-                            `);
+                            ordersBody.append(`<tr><td colspan="7" class="text-center">No orders yet</td></tr>`);
                         }
                     }
                 });
             }
+
+            $(document).on('click', '.accept-order', function() {
+                const id = $(this).data('id');
+                $.ajax({ url: `/orders/${id}/accept`, method: 'PUT', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, success: function() { loadOrders(); } });
+            });
+            $(document).on('click', '.reject-order', function() {
+                const id = $(this).data('id');
+                if (!confirm('Reject this order?')) return;
+                $.ajax({ url: `/orders/${id}/reject`, method: 'PUT', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, success: function() { loadOrders(); } });
+            });
+            $(document).on('change', '.order-status', function() {
+                const id = $(this).data('id');
+                const status = $(this).val();
+                $.ajax({ url: `/orders/${id}/status`, method: 'PUT', data: { status: status, _token: '{{ csrf_token() }}' }, headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, success: function() { loadOrders(); } });
+            });
 
             // Add delete order handler
             $(document).on('click', '.delete-order', function() {
@@ -413,9 +444,8 @@
                 }
             });
 
-            // Initial load and refresh
             loadOrders();
-            setInterval(loadOrders, 30000);
+            setInterval(loadOrders, 5000);
         });
     </script>
 </x-app-layout>

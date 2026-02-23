@@ -10,6 +10,8 @@
                 </div>
             @endif
             <div>
+                <a href="{{ route('orders.my') }}" class="text-gray-600 hover:text-gray-900 text-decoration-none me-3">My Orders</a>
+                <a href="{{ route('reviews.index') }}" class="text-gray-600 hover:text-gray-900 text-decoration-none me-3">Reviews</a>
                 <a href="{{ route('contact.show') }}" class="text-gray-600 hover:text-gray-900 text-decoration-none">
                     📱 Contact Support
                 </a>
@@ -84,6 +86,7 @@
                         <thead>
                             <tr>
                                 <th>Item</th>
+                                <th>Remark</th>
                                 <th>Price</th>
                                 <th>Quantity</th>
                                 <th>Subtotal</th>
@@ -96,7 +99,33 @@
                     </table>
                 </div>
                 <div class="text-end">
-                    <button class="btn btn-primary" id="checkoutBtn">Proceed to Checkout</button>
+                    <button class="btn btn-primary" id="checkoutBtn" data-bs-toggle="modal" data-bs-target="#checkoutModal">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="checkoutModalLabel">Delivery details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="delivery_address" class="form-label">Delivery address <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="delivery_address" rows="3" required placeholder="Street, area, postcode"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone number <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="phone" required placeholder="e.g. 0123456789">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmCheckoutBtn">Place order</button>
                 </div>
             </div>
         </div>
@@ -127,18 +156,21 @@
                         categoryFoods.forEach(food => {
                             container.append(`
                                 <div class="list-group-item">
-                                    <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <div>
                                             <h6 class="mb-1">${food.name}</h6>
                                             <p class="mb-0 text-muted">RM ${parseFloat(food.price).toFixed(2)}</p>
                                             <small class="text-muted">${food.description}</small>
                                         </div>
-                                        <button class="btn btn-sm btn-primary add-to-cart"
-                                                data-id="${food.id}"
-                                                data-name="${food.name}"
-                                                data-price="${food.price}">
-                                            Add to Cart
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input type="text" class="form-control form-control-sm item-remark" placeholder="Remark (optional)" style="max-width: 160px;" title="e.g. No ice, Less sugar">
+                                            <button class="btn btn-sm btn-primary add-to-cart"
+                                                    data-id="${food.id}"
+                                                    data-name="${food.name}"
+                                                    data-price="${food.price}">
+                                                Add to Cart
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             `);
@@ -150,18 +182,20 @@
             // Add to Cart button click handler
             $(document).on('click', '.add-to-cart', function() {
                 const button = $(this);
+                const row = button.closest('.list-group-item');
                 const name = button.data('name');
                 const price = parseFloat(button.data('price'));
+                const remark = (row.find('.item-remark').val() || '').trim();
 
-                // Check if item already exists in cart
-                const existingItem = cart.find(item => item.name === name);
-
+                // Same item + same remark = increase quantity
+                const existingItem = cart.find(item => item.name === name && (item.remark || '') === remark);
                 if (existingItem) {
                     existingItem.quantity += 1;
                     existingItem.subtotal = existingItem.quantity * existingItem.price;
                 } else {
                     cart.push({
                         name: name,
+                        remark: remark,
                         price: price,
                         quantity: 1,
                         subtotal: price
@@ -179,9 +213,11 @@
 
                 cart.forEach((item, index) => {
                     total += item.subtotal;
+                    const remark = (item.remark || '').trim();
                     cartBody.append(`
                         <tr>
                             <td>${item.name}</td>
+                            <td><span class="text-muted small">${remark ? remark : '—'}</span></td>
                             <td>RM ${item.price.toFixed(2)}</td>
                             <td>
                                 <div class="input-group input-group-sm" style="width: 100px;">
@@ -234,31 +270,38 @@
                 updateCartDisplay();
             });
 
-            // Checkout button click handler
-            $('#checkoutBtn').click(function() {
-                if (cart.length > 0) {
-                    $.ajax({
-                        url: '{{ route('orders.store') }}',
-                        type: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        data: {
-                            customer_name: '{{ Auth::user()->name }}',
-                            items: JSON.stringify(cart),
-                            total_amount: total
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                cart = [];
-                                updateCartDisplay();
-                            }
-                        },
-                        error: function() {
-                            alert('Error placing order. Please try again.');
-                        }
-                    });
+            $('#confirmCheckoutBtn').click(function() {
+                var address = $('#delivery_address').val().trim();
+                var phone = $('#phone').val().trim();
+                if (!address || !phone) {
+                    alert('Please enter delivery address and phone number.');
+                    return;
                 }
+                if (cart.length === 0) return;
+                $.ajax({
+                    url: '{{ route('orders.store') }}',
+                    type: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    data: {
+                        items: JSON.stringify(cart),
+                        total_amount: total,
+                        delivery_address: address,
+                        phone: phone
+                    },
+                    success: function(response) {
+                        if (response.success && response.order_id) {
+                            cart = [];
+                            updateCartDisplay();
+                            $('#checkoutModal').modal('hide');
+                            window.location.href = '{{ route("orders.confirmation", ["order" => "__ID__"]) }}'.replace('__ID__', response.order_id);
+                        } else {
+                            alert('Order placed. Go to My Orders to view.');
+                        }
+                    },
+                    error: function() {
+                        alert('Error placing order. Please try again.');
+                    }
+                });
             });
 
             // Initially hide checkout button

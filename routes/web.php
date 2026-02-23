@@ -36,7 +36,18 @@ Route::middleware(['auth'])->group(function () {
     // Order routes
     Route::post('/orders', [App\Http\Controllers\OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders', [App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/my', [App\Http\Controllers\OrderController::class, 'myOrders'])->name('orders.my');
+    Route::get('/orders/confirmation/{order}', [App\Http\Controllers\OrderController::class, 'confirmation'])->name('orders.confirmation');
+    Route::get('/orders/receipt/{order}', [App\Http\Controllers\OrderController::class, 'receipt'])->name('orders.receipt');
+    Route::get('/orders/{order}', [App\Http\Controllers\OrderController::class, 'show'])->name('orders.show');
     Route::delete('/orders/{order}', [App\Http\Controllers\OrderController::class, 'destroy'])->name('orders.destroy');
+    Route::put('/orders/{order}/accept', [App\Http\Controllers\OrderController::class, 'accept'])->name('orders.accept');
+    Route::put('/orders/{order}/reject', [App\Http\Controllers\OrderController::class, 'reject'])->name('orders.reject');
+    Route::put('/orders/{order}/status', [App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.update-status');
+
+    // Reviews
+    Route::get('/reviews', [App\Http\Controllers\ReviewController::class, 'index'])->name('reviews.index');
+    Route::post('/reviews', [App\Http\Controllers\ReviewController::class, 'store'])->name('reviews.store');
 
     // Contact routes
     Route::get('/contact', [App\Http\Controllers\ContactController::class, 'show'])->name('contact.show');
@@ -49,11 +60,6 @@ Route::middleware(['auth'])->group(function () {
         }
         return view('dashboard');
     })->name('dashboard');
-});
-
-// Order status update route
-Route::middleware(['auth'])->group(function () {
-    Route::put('/orders/{order}/status', [App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.update-status');
 });
 
 // Google OAuth routes

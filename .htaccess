@@ -1,0 +1,6 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Redirect to public folder so Laravel is served correctly
+    RewriteRule ^$ public/ [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

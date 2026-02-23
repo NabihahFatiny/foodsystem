@@ -298,6 +298,48 @@
         </div>
     </section>
 
+    <!-- Customer Reviews Section -->
+    @if(isset($review_count) && $review_count > 0)
+    <section class="py-5 bg-white">
+        <div class="container">
+            <h2 class="text-center mb-4">What Our Customers Say</h2>
+            <div class="text-center mb-4">
+                <span class="display-6 text-warning">
+                    @for($i = 1; $i <= 5; $i++) {{ $i <= round($average_rating ?? 0) ? '★' : '☆' }} @endfor
+                </span>
+                <span class="ms-2 fw-bold">{{ number_format($average_rating ?? 0, 1) }}</span>
+                <span class="text-muted"> ({{ $review_count }} {{ $review_count === 1 ? 'review' : 'reviews' }})</span>
+            </div>
+            <div class="row g-4">
+                @foreach($recent_reviews ?? [] as $r)
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="mb-2">
+                                @for($i = 1; $i <= 5; $i++)
+                                    <span class="text-warning">{{ $i <= (int)$r->rating ? '★' : '☆' }}</span>
+                                @endfor
+                            </div>
+                            @if($r->review)
+                                <p class="card-text text-muted">"{{ Str::limit($r->review, 120) }}"</p>
+                            @else
+                                <p class="card-text text-muted">Rated {{ $r->rating }}/5</p>
+                            @endif
+                            <p class="mb-0 small fw-semibold">— {{ $r->user->name ?? 'Customer' }}</p>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            @if($review_count > 0)
+                <div class="text-center mt-4">
+                    <a href="{{ route('reviews.index') }}" class="btn btn-outline-primary">See all reviews</a>
+                </div>
+            @endif
+        </div>
+    </section>
+    @endif
+
     <!-- Footer -->
     <footer class="bg-dark text-light py-5">
         <div class="container">

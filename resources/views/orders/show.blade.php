@@ -54,25 +54,74 @@
                 </table>
                 <p class="text-end mb-0"><strong>Total: RM {{ number_format($order->total_amount, 2) }}</strong></p>
 
-                @if(!empty($can_review))
+                @if(Auth::user()->email !== 'admin@gmail.com')
                     <hr class="my-4">
-                    <h5 class="mb-3">Rate this order</h5>
-                    <form action="{{ route('reviews.store') }}" method="POST" class="mb-0">
-                        @csrf
-                        <input type="hidden" name="order_id" value="{{ $order->id }}">
-                        <div class="mb-3">
-                            <label class="form-label">Rating</label>
-                            <select name="rating" class="form-select" style="width: auto;" required>
-                                <option value="">Select</option>
-                                @for($i = 1; $i <= 5; $i++) <option value="{{ $i }}">{{ $i }} ★</option> @endfor
-                            </select>
+                    @if(session('success'))
+                        <div class="alert alert-success mb-3">{{ session('success') }}</div>
+                    @endif
+                    @if($existing_review)
+                        <h5 class="mb-2">Your review</h5>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            @for($i = 1; $i <= 5; $i++)
+                                <span class="text-warning">{{ $i <= (int)$existing_review->rating ? '★' : '☆' }}</span>
+                            @endfor
+                            <span class="text-muted">({{ $existing_review->rating }}/5)</span>
+                            <span class="text-muted small">· {{ $existing_review->created_at->format('M d, Y') }}</span>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Review (optional)</label>
-                            <textarea name="review" class="form-control" rows="3" placeholder="How was your order?"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Submit review</button>
-                    </form>
+                        @if($existing_review->review)
+                            <p class="mb-0 text-muted">{{ $existing_review->review }}</p>
+                        @endif
+                        <p class="small text-muted mt-2 mb-0">Thank you for your feedback!</p>
+                    @elseif(!empty($can_review))
+                        <h5 class="mb-3">Rate this order</h5>
+                        <form action="{{ route('reviews.store') }}" method="POST" class="mb-0">
+                            @csrf
+                            <input type="hidden" name="order_id" value="{{ $order->id }}">
+                            <div class="mb-3">
+                                <label class="form-label">Rating <span class="text-danger">*</span></label>
+                                <div class="d-flex gap-1 align-items-center flex-wrap">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <label class="mb-0 cursor-pointer" style="cursor:pointer;">
+                                            <input type="radio" name="rating" value="{{ $i }}" class="d-none star-radio" {{ old('rating', '') == (string)$i ? 'checked' : '' }} required>
+                                            <span class="star-display fs-4 text-warning" data-value="{{ $i }}">{{ (int)old('rating') >= $i ? '★' : '☆' }}</span>
+                                        </label>
+                                    @endfor
+                                    <span class="text-muted ms-2">(1–5 stars)</span>
+                                </div>
+                                @error('rating') <div class="text-danger small">{{ $message }}</div> @enderror
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Review (optional)</label>
+                                <textarea name="review" class="form-control" rows="3" placeholder="How was your order? Tell others about the food and delivery." maxlength="1000">{{ old('review') }}</textarea>
+                                <small class="text-muted">Max 1000 characters</small>
+                                @error('review') <div class="text-danger small">{{ $message }}</div> @enderror
+                            </div>
+                            <button type="submit" class="btn btn-primary">Submit review</button>
+                        </form>
+                        <script>
+                            (function() {
+                                var form = document.querySelector('form[action*="reviews.store"]') || document.querySelector('form[action*="reviews"]');
+                                if (!form) return;
+                                var stars = form.querySelectorAll('.star-display');
+                                var radios = form.querySelectorAll('.star-radio');
+                                stars.forEach(function(span) {
+                                    span.addEventListener('click', function() {
+                                        var val = parseInt(this.getAttribute('data-value'), 10);
+                                        form.querySelector('input[name="rating"][value="' + val + '"]').checked = true;
+                                        stars.forEach(function(s, i) { s.textContent = (i + 1) <= val ? '★' : '☆'; });
+                                    });
+                                });
+                                radios.forEach(function(radio) {
+                                    radio.addEventListener('change', function() {
+                                        var val = parseInt(this.value, 10);
+                                        stars.forEach(function(s, i) { s.textContent = (i + 1) <= val ? '★' : '☆'; });
+                                    });
+                                });
+                            })();
+                        </script>
+                    @elseif($order->status === 'delivered')
+                        <p class="text-muted mb-0">You have not reviewed this order yet. Reviews are only available for delivered orders.</p>
+                    @endif
                 @endif
             </div>
         </div>

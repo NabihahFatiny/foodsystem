@@ -6,7 +6,14 @@ use App\Http\Controllers\Auth\GoogleController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
-    return view('welcome');
+    $reviewCount = \App\Models\OrderReview::count();
+    $averageRating = $reviewCount > 0 ? round(\App\Models\OrderReview::avg('rating'), 1) : null;
+    $recentReviews = \App\Models\OrderReview::with('user')->latest()->take(3)->get();
+    return view('welcome', [
+        'review_count' => $reviewCount,
+        'average_rating' => $averageRating,
+        'recent_reviews' => $recentReviews,
+    ]);
 });
 
 // Admin routes
@@ -26,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
         }
         return redirect('/');
     })->name('admin.dashboard');
+    Route::get('/admin/reviews', [App\Http\Controllers\ReviewController::class, 'adminIndex'])->name('admin.reviews');
 
     // Admin food routes
     Route::post('/admin/food/store', [App\Http\Controllers\Admin\FoodController::class, 'store'])->name('admin.food.store');

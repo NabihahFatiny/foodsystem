@@ -75,14 +75,15 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         if (Auth::user()->email === 'admin@gmail.com') {
-            return view('orders.show', ['order' => $order, 'can_review' => false]);
+            $order->load('review.user');
+            return view('orders.show', ['order' => $order, 'can_review' => false, 'existing_review' => null]);
         }
         if ($order->user_id !== Auth::id()) {
             abort(403);
         }
-        $has_review = \App\Models\OrderReview::where('order_id', $order->id)->where('user_id', Auth::id())->exists();
-        $can_review = $order->status === 'delivered' && !$has_review;
-        return view('orders.show', ['order' => $order, 'can_review' => $can_review]);
+        $existing_review = \App\Models\OrderReview::where('order_id', $order->id)->where('user_id', Auth::id())->first();
+        $can_review = $order->status === 'delivered' && !$existing_review;
+        return view('orders.show', ['order' => $order, 'can_review' => $can_review, 'existing_review' => $existing_review]);
     }
 
     public function receipt(Order $order)
